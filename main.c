@@ -6,6 +6,7 @@
 #include <getopt.h>
 #include <ctype.h>
 #include <math.h>
+#include <pthread.h>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -163,7 +164,8 @@ int main(int argc, char **argv)
 
     send(tls2, request, sizeof(request), 0);
 
-    char response[atoi(cl_val)];
+    // atoi(cl_val)
+    char response[8192];
     int bytes=0;
     int bytes_received;
 
@@ -181,12 +183,12 @@ int main(int argc, char **argv)
  
         bytes = bytes + bytes_received;
 
-        if(bytes>atoi(cl_val))
-        break;
+        printf("Bytes recieved: %d from %s\n",bytes,cl_val);
 
         fwrite(&response, 1, sizeof(response),fp);
 
-        printf("Bytes recieved: %d from %s\n",bytes,cl_val);
+        if(bytes>atoi(cl_val))
+        break;
 
     }
         
