@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
+#include <fcntl.h> 
 #include <unistd.h> 
 
 #include <sys/types.h>
@@ -9,6 +9,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #define h_addr h_addr_list[0]
 
@@ -62,4 +65,37 @@ int OpenConnection(const char *hostname, int portnum)
     }
 
     return client_socket;
+}
+
+SSL_CTX* InitCTX(void)
+{
+    SSL_METHOD const *method;
+    SSL_CTX *ctx;    
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();  /* Load cryptos, et.al. */
+    SSL_load_error_strings();   /* Bring in and register error messages */
+    method = TLS_client_method();  /* Create new client-method instance */
+    ctx = SSL_CTX_new(method);   /* Create new context */
+    if ( ctx == NULL )
+    {
+        ERR_print_errors_fp(stderr);
+        abort();
+    }
+    return ctx;
+}
+
+int create_TLS_Session (const char *hostname, int portnum) 
+{
+    SSL_CTX *ctx;
+    int TLS_connection;
+    SSL *ssl;
+
+    ctx = InitCTX();
+    TLS_connection = OpenConnection(hostname, portnum);
+    ssl = SSL_new(ctx);     
+    SSL_set_fd(ssl, TLS_connection); 
+
+    printf("\nTLS Session created!\n");  
+
+    return TLS_connection;
 }

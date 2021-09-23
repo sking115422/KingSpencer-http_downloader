@@ -3,27 +3,16 @@
 #include <unistd.h>
 #include <pthread.h>
 
-void * workerThreadFunc(void * tid){
-    long * myID = (long *) tid;
-    printf ("HELLO WORLD! THIS IS THREAD %ld\n", *myID);
-}
+int create_thread (char t_name [], t_funct()) {
+    
+    pthread_t t_name;
+    pthread_t * p_t_name = &t_name;
 
-int main () {
-
-    pthread_t tid0;
-    pthread_t tid1;
-    pthread_t tid2;
-    pthread_t * pthreads[] = {&tid0, &tid1, &tid2};
-
-    for (int i = 0; i < 3; i++) {
-        pthread_create(pthreads[i], NULL, workerThreadFunc, (void *) pthreads[i]);
-    }
-
-
-
+    pthread_create(&p_t_name, NULL, t_funct, (void *) p_t_name);
+    
     pthread_exit(NULL);
-    return 0;
-
+    
+    return p_t_name;
 }
 
 //gcc test.c -o thr -lpthread

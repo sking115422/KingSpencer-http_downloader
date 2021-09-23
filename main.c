@@ -8,28 +8,9 @@
 #include <math.h>
 #include <pthread.h>
 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#include "http_dwnldr_lib.h"
 
-#include "conn_utils.h"
-#include "f_clean_copy.h"
-
-int create_TLS_Session (const char *hostname, int portnum) 
-{
-    SSL_CTX *ctx;
-    int serverConnection;
-    SSL *ssl;
-
-    ctx = InitCTX();
-    serverConnection = OpenConnection(hostname, portnum);
-    ssl = SSL_new(ctx);     
-    SSL_set_fd(ssl, serverConnection); 
-
-    printf("\nTLS Session created!\n");  
-
-    return serverConnection;
-}
-
+// -lpthread
 
 int main(int argc, char **argv) 
 {
@@ -70,12 +51,7 @@ int main(int argc, char **argv)
         exit(0);    
     }
 
-    // printf("\nurl: %s\n", HTTPS_URL);
-    // printf("\nnumparts: %d\n", atoi(NUM_PARTS));
-    // printf("\noutput: %s\n", OUTPUT_FILE);
-
-    //parsing url into tokens
-	char * str = HTTPS_URL;
+    char * str = HTTPS_URL;
 	int init_size = strlen(str);
 	char delim[] = "/";
     char urlArr[strlen(str)][strlen(str)];
@@ -141,69 +117,67 @@ int main(int argc, char **argv)
 
     }
 
-    int size_of_parts = floor((double)(atoi(cl_val)/atoi(NUM_PARTS)));
-    int remainder = (atoi(cl_val)%atoi(NUM_PARTS));
+    int int_cl_val = atoi(cl_val);
+    int int_NUM_PARTS = atoi(NUM_PARTS);
+    int size_of_parts = floor((double)(int_cl_val/int_NUM_PARTS));
+    int remainder = (int_cl_val % int_NUM_PARTS);
 
-    printf("size of parts: %d\n", size_of_parts);
-    printf("remainder: %d\n", remainder);
+    printf("remainder %d\n", remainder);
+
+    int rangeArr [int_NUM_PARTS + 1];
+    for (int i = 0; i < int_NUM_PARTS + 1; i++)
+    {
+        if (i == 0)
+        {
+            rangeArr [i] = 0;
+        }
+
+        else if (i == int_NUM_PARTS)
+        {
+            rangeArr [i] = rangeArr [i - 1] + size_of_parts + remainder;
+        }       
+            
+        else 
+        {
+            rangeArr [i] = rangeArr [i - 1] + size_of_parts;
+        }
+    }
+
+    printf("RANGE VALUES\n");
+    for (int j = 0; j < int_NUM_PARTS + 1; j++ ) 
+    {
+      printf("Element[%d] = %d\n", j, rangeArr[j] );
+    }
 
     close(tls1);
 
+    //only pass range_To_File
+    //make args as a structure, cast structure to (void *)
+    //pass args as the last arguemnt in pthread_create
 
+    char part[256];
+    pthread_t threadArr [int_NUM_PARTS];
 
-
-    //opens TLS connection as tls2
-    int tls2 = create_TLS_Session(hostname, portnum);
-
-    char request[8192];
-    char range[] = "0-2404";
-
-    // snprintf(request, sizeof(request), "GET %s HTTP/1.1\r\nHost: %s\r\nRange: bytes=%s\r\n\r\n", path, hostname, range);
-    snprintf(request, sizeof(request), "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", path, hostname);
-    printf("\nrequest:\n%s", request);
-
-    send(tls2, request, sizeof(request), 0);
-
-    // atoi(cl_val)
-    char response[8192];
-    int bytes=0;
-    int bytes_received;
-
-    FILE* fp=fopen("testout.o","wb");
-    printf("Downloading https response body in bytes to file...\n\n");   
-
-    while(bytes_received = recv(tls2, &response, sizeof(response), 0))
+    for (int i = 0; i < int_NUM_PARTS; i++) 
     {
-         
-        if(bytes_received==-1)
-        {
-            perror("recieve");
-            exit(3);
-        }
- 
-        bytes = bytes + bytes_received;
+        snprintf(part, sizeof(part), "part_%d", i + 1);
 
-        printf("Bytes recieved: %d from %s\n",bytes,cl_val);
-
-        fwrite(&response, 1, sizeof(response),fp);
-
-        if(bytes>atoi(cl_val))
-        break;
+        pthread_create(&threadArr[i], NULL, (void *) range_To_File(hostname, path, portnum, rangeArr[i], rangeArr[i+1], part), (void *) &threadArr[i]);  
 
     }
-        
 
-    fclose(fp);
-
-    close(tls2);
 
     char * IN_FILE;
-    IN_FILE = "testout.o";
+    IN_FILE = "part_1";
 
     f_clean_copy(header_len, IN_FILE, OUTPUT_FILE);
 
     printf("\nprogram completed!\n");
+    
+    sleep(5);
 
+    pthread_exit(NULL);
+    
     return 0;
 
 }
