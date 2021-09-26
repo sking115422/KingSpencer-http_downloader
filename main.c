@@ -160,23 +160,21 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < int_NUM_PARTS; i++) 
     {
-        snprintf(part, sizeof(part), "part_%d", i + 1);
+        snprintf(part, sizeof(part), "part_%d.jpg", i + 1);
 
         pthread_create(&threadArr[i], NULL, (void *) range_To_File(hostname, path, portnum, rangeArr[i], rangeArr[i+1], part), (void *) &threadArr[i]);  
 
     }
 
 
-    char * IN_FILE;
-    IN_FILE = "part_1";
+    // char * IN_FILE;
+    // IN_FILE = "part_1";
 
-    f_clean_copy(header_len, IN_FILE, OUTPUT_FILE);
+    // f_clean_copy(header_len, IN_FILE, OUTPUT_FILE);
 
     printf("\nprogram completed!\n");
-    
-    sleep(5);
 
-    pthread_exit(NULL);
+    // pthread_exit(NULL);
     
     return 0;
 
