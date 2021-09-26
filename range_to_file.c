@@ -43,7 +43,6 @@ void * range_To_File(const char *hostname, char path [], int portnum, int start_
         char * bytes_ptr;
         bytes_ptr = strstr(response, "\r\n\r\n");
 
-        // fwrite(bytes_ptr + 4, 1, sizeof(response),fp);
 
         if (count == 1)
         {
@@ -53,14 +52,12 @@ void * range_To_File(const char *hostname, char path [], int portnum, int start_
         }
         else 
         {
-        // fwrite(ptr_response, bytes_received, 1, fp);
             fwrite(ptr_response, 1, bytes_received,fp);            
         }
  
         bytes = bytes + bytes_received;
 
         printf("Bytes recieved: %d from %d\n", bytes, range_len);
-        // printf("ptr: %s\n", bytes_ptr);
 
         count++;        
 
