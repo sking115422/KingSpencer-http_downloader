@@ -10,7 +10,14 @@
 
 #include "http_dwnldr_lib.h"
 
-// -lpthread
+struct Args {
+    char * _hostname;
+    char * _path;
+    int _portnum;
+    int _range1;
+    int _range2;
+    int _id;
+};
 
 int main(int argc, char **argv) 
 {
@@ -21,7 +28,7 @@ int main(int argc, char **argv)
 
     char * HTTPS_URL = NULL;
     char * NUM_PARTS = "5";
-    char * OUTPUT_FILE = "outfile.o";
+    char * OUTPUT_FILE = "downloaded_outfile";
 
     while((option_val = getopt(argc, argv, "u:n:o:h")) != -1)
     {
@@ -38,7 +45,7 @@ int main(int argc, char **argv)
                 break;
             case 'h':
                 printf("-h  for help\n");
-                printf("-u  to specify the url of file to download\n");
+                printf("-u  to specify the url (https:// included) of file to download\n");
                 printf("-n  to enter number of parts to break the file in to\n");
                 printf("-o  to give a name for the downloaded output file\n");
                 exit(0);
@@ -92,9 +99,9 @@ int main(int argc, char **argv)
 
     printf("\nh_response from server: %s\n", h_response);
 
-    int header_len = strlen(h_response);
-    printf("\nheader_len: %d\n", header_len);
+    close(tls1);
 
+    int header_len = strlen(h_response);
     char cl_val [256] = ""; 
     
     if(strstr(h_response, "Content-Length:") != NULL) 
@@ -122,8 +129,6 @@ int main(int argc, char **argv)
     int size_of_parts = floor((double)(int_cl_val/int_NUM_PARTS));
     int remainder = (int_cl_val % int_NUM_PARTS);
 
-    printf("remainder %d\n", remainder);
-
     int rangeArr [int_NUM_PARTS + 1];
     for (int i = 0; i < int_NUM_PARTS + 1; i++)
     {
@@ -143,39 +148,42 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("RANGE VALUES\n");
-    for (int j = 0; j < int_NUM_PARTS + 1; j++ ) 
-    {
-      printf("Element[%d] = %d\n", j, rangeArr[j] );
-    }
+ 
 
-    close(tls1);
-
-    //only pass range_To_File
-    //make args as a structure, cast structure to (void *)
-    //pass args as the last arguemnt in pthread_create
-
-    char part[256];
+    struct Args argArr [int_NUM_PARTS];
     pthread_t threadArr [int_NUM_PARTS];
 
     for (int i = 0; i < int_NUM_PARTS; i++) 
     {
-        snprintf(part, sizeof(part), "part_%d.jpg", i + 1);
 
-        pthread_create(&threadArr[i], NULL, (void *) range_To_File(hostname, path, portnum, rangeArr[i], rangeArr[i+1], part), (void *) &threadArr[i]);  
+        argArr[i]._id = i + 1;
+        argArr[i]._hostname = hostname;
+        argArr[i]._portnum = portnum;
+        argArr[i]._path = path;
+        argArr[i]._range1 = rangeArr[i];
+        argArr[i]._range2 = rangeArr[i+1];
 
-    }
+        pthread_create(&threadArr[i], NULL, (void *) range_To_File, &argArr[i]);  
 
+    } 
 
-    // char * IN_FILE;
-    // IN_FILE = "part_1";
-
-    // f_clean_copy(header_len, IN_FILE, OUTPUT_FILE);
+    for (int i = 0; i < int_NUM_PARTS; i++)
+    {
+        pthread_join(threadArr [i], NULL);  
+    } 
 
     printf("\nprogram completed!\n");
 
-    // pthread_exit(NULL);
+    pthread_exit(NULL);
     
     return 0;
 
-}
+}   
+
+
+
+// char * IN_FILE;
+// IN_FILE = "part_1";
+
+// f_clean_copy(header_len, IN_FILE, OUTPUT_FILE);
+

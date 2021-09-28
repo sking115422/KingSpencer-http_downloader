@@ -1,12 +1,37 @@
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h>
+#include <memory.h>
+
 
 #include "http_dwnldr_lib.h"
 
-void * range_To_File(const char *hostname, char path [], int portnum, int start_range, int end_range, char file_path []) 
 
+struct Args {
+    char * _hostname;
+    char * _path;
+    int _portnum;
+    int _range1;
+    int _range2;
+    int _id;
+};
+
+
+void* range_To_File (void * arg)
 {
+    struct Args info = *(struct Args *) arg;
+
+    char *hostname = info._hostname;
+    char * path = info._path;
+    int portnum = info._portnum; 
+    int start_range = info._range1; 
+    int end_range = info._range2;
+
+    char part [64];
+    snprintf(part, sizeof(part), "part_%d", info._id);
+
+    char * file_path = part;
+
     //opens TLS connection as tls2
     int tls = create_TLS_Session(hostname, portnum);
 
@@ -19,7 +44,7 @@ void * range_To_File(const char *hostname, char path [], int portnum, int start_
     send(tls, request, sizeof(request), 0);
 
     // atoi(cl_val)
-    char response [2048];
+    char response [4096];
     char * ptr_response = response;
     int bytes=0;
     int bytes_received;
@@ -61,7 +86,7 @@ void * range_To_File(const char *hostname, char path [], int portnum, int start_
 
         count++;        
 
-        if(bytes>range_len)
+        if(bytes >= range_len)
         break;
 
     }

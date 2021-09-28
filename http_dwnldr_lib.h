@@ -16,4 +16,4 @@
 int OpenConnection(const char *hostname, int portnum);
 int create_TLS_Session (const char *hostname, int portnum);
 int f_clean_copy(int header_len, char * input_name, char * output_name);
-void * range_To_File(const char *hostname, char path [], int portnum, int start_range, int end_range, char file_path []);
+void* range_To_File (void * arg);
