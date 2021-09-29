@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 
     char * HTTPS_URL = NULL;
     char * NUM_PARTS = "5";
-    char * OUTPUT_FILE = "downloaded_outfile";
+    char * OUTPUT_FILE = "output";
 
     while((option_val = getopt(argc, argv, "u:n:o:h")) != -1)
     {
@@ -163,6 +163,9 @@ int main(int argc, char **argv)
         argArr[i]._range1 = rangeArr[i];
         argArr[i]._range2 = rangeArr[i+1];
 
+        printf("%d\n", argArr[i]._range1);
+        printf("%d\n", argArr[i]._range2);
+
         pthread_create(&threadArr[i], NULL, (void *) range_To_File, &argArr[i]);  
 
     } 
@@ -172,18 +175,14 @@ int main(int argc, char **argv)
         pthread_join(threadArr [i], NULL);  
     } 
 
+
+    files_To_Out(OUTPUT_FILE);
+    
     printf("\nprogram completed!\n");
 
     pthread_exit(NULL);
-    
+
     return 0;
 
 }   
-
-
-
-// char * IN_FILE;
-// IN_FILE = "part_1";
-
-// f_clean_copy(header_len, IN_FILE, OUTPUT_FILE);
 

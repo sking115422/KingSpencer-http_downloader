@@ -15,7 +15,7 @@
 
 #define h_addr h_addr_list[0]
 
-int OpenConnection(const char *hostname, int portnum)
+int openConnection(const char *hostname, int portnum)
 {
     int i;
     struct hostent *he;
@@ -91,7 +91,7 @@ int create_TLS_Session (const char *hostname, int portnum)
     SSL *ssl;
 
     ctx = InitCTX();
-    TLS_connection = OpenConnection(hostname, portnum);
+    TLS_connection = openConnection(hostname, portnum);
     ssl = SSL_new(ctx);     
     SSL_set_fd(ssl, TLS_connection); 
 
