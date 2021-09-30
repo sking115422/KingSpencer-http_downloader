@@ -17,6 +17,7 @@ struct Args {
     int _range1;
     int _range2;
     int _id;
+    int _timesToRun;
 };
 
 int main(int argc, char **argv) 
@@ -162,6 +163,7 @@ int main(int argc, char **argv)
         argArr[i]._path = path;
         argArr[i]._range1 = rangeArr[i];
         argArr[i]._range2 = rangeArr[i+1];
+        argArr[i]._timesToRun = int_NUM_PARTS;
 
         printf("%d\n", argArr[i]._range1);
         printf("%d\n", argArr[i]._range2);

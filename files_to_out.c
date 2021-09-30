@@ -48,12 +48,12 @@ int files_To_Out(char * output_name)
         snprintf(part_name, sizeof(part_name), "part_%d", i + 1);
         from [i] = fopen(part_name, "rb");
 
-        char buffer[4096];
+        char buffer[1024];
         int count;
 
         while ((count = fread(buffer, 1, sizeof (buffer), from[i])) > 0)
         {
-            fwrite(buffer, 1, count, to);  
+            fwrite(buffer, 1, count, to);
         }
         
         fclose(from [i]);
