@@ -15,6 +15,8 @@
 
 #define h_addr h_addr_list[0]
 
+//Method to create tcp socket
+
 int openConnection(const char *hostname, int portnum)
 {
     int i;
@@ -22,15 +24,12 @@ int openConnection(const char *hostname, int portnum)
     struct in_addr **addr_list;
     struct in_addr addr;
 
-    // get the addresses of hostname in url array stored in urlArr[1]:
-
+    //resolving hostname to IP
     he = gethostbyname(hostname);
-    if (he == NULL) { // do some error checking
-        herror("gethostbyname"); // herror(), NOT perror()
+    if (he == NULL) { 
+        herror("gethostbyname"); 
         exit(1);
     }
-
-    // print information about this host:
 
     printf("\nDNS INFO\n");
     printf("Official name is: %s\n", he->h_name);
@@ -43,11 +42,10 @@ int openConnection(const char *hostname, int portnum)
     }
     printf("\n");
 
-    //CREATING SOCKET
+    int tcp_socket;
 
-    int client_socket;
-
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    //creating socket
+    tcp_socket = socket(AF_INET, SOCK_STREAM, 0);
 
     struct sockaddr_in remote_address;
 
@@ -55,47 +53,68 @@ int openConnection(const char *hostname, int portnum)
     remote_address.sin_port = htons(portnum);
     inet_aton(first_ip, &remote_address.sin_addr);
 
-    // connect(client_socket, (struct sockaddr *) &remote_address, sizeof(remote_address));
-
-    if ( connect(client_socket, (struct sockaddr *) &remote_address, sizeof(remote_address)) != 0 )
+    //establishing TCP connection
+    if ( connect(tcp_socket, (struct sockaddr *) &remote_address, sizeof(remote_address)) != 0 )
     {
-        close(client_socket);
-        perror(hostname);
+        close(tcp_socket);
+        ERR_print_errors_fp(stderr);
         abort();
     }
 
-    return client_socket;
+    printf("\nNew TCP socket created!\n");
+
+    return tcp_socket;
 }
+
+//Method to create contect structure for SSL session
 
 SSL_CTX* InitCTX(void)
 {
     SSL_METHOD const *method;
-    SSL_CTX *ctx;    
+    SSL_CTX *ctx;
+
     SSL_library_init();
-    OpenSSL_add_all_algorithms();  /* Load cryptos, et.al. */
-    SSL_load_error_strings();   /* Bring in and register error messages */
-    method = TLS_client_method();  /* Create new client-method instance */
-    ctx = SSL_CTX_new(method);   /* Create new context */
+    OpenSSL_add_all_algorithms(); 
+    SSL_load_error_strings();
+
+    //non-deprecation method to negotiate http version used in communication
+    //will select most updated version server will allow 
+    method = TLS_client_method();
+
+    ctx = SSL_CTX_new(method);   
+
     if ( ctx == NULL )
     {
         ERR_print_errors_fp(stderr);
         abort();
     }
+
+    printf("New SSL context (CTX) created!\n");
+
     return ctx;
 }
 
-int create_TLS_Session (const char *hostname, int portnum) 
+//Method to create SSL session
+
+struct ssl_st * create_TLS_Session (const char *hostname, int tcp, SSL_CTX *ctx) 
 {
-    SSL_CTX *ctx;
-    int TLS_connection;
     SSL *ssl;
 
     ctx = InitCTX();
-    TLS_connection = openConnection(hostname, portnum);
-    ssl = SSL_new(ctx);     
-    SSL_set_fd(ssl, TLS_connection); 
+    ssl = SSL_new(ctx);
 
-    printf("\nTLS Session created!\n");  
+    //setting SNI (server name indication)
+    SSL_set_tlsext_host_name(ssl, hostname); 
 
-    return TLS_connection;
+    SSL_set_fd(ssl, tcp);
+
+    if ( SSL_connect(ssl) == -1 )  
+    {
+        ERR_print_errors_fp(stderr);
+        abort();
+    }
+
+    printf("New TLS Session created!\n");  
+
+    return ssl;
 }

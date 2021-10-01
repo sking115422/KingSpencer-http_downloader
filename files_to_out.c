@@ -3,6 +3,7 @@
 #include <string.h>
 #include <dirent.h>
 
+//Method to count all number of part files
 
 int count_Parts() 
 {
@@ -31,9 +32,12 @@ int count_Parts()
     return count; 
 }
 
+//Method to remove headers and recombine all parts to output file
 
 int files_To_Out(char * output_name)
 {
+
+    printf("Recompiling parts...\n\n");
 
     int num_parts = count_Parts();
 
@@ -49,7 +53,24 @@ int files_To_Out(char * output_name)
         from [i] = fopen(part_name, "rb");
 
         char buffer[1024];
+        char * buffer_ptr = buffer;
         int count;
+
+
+        char * bytes_ptr;
+        int header_len;        
+
+        while ((count = fread(buffer, 1, sizeof (buffer), from[i])) > 0)
+        {
+            bytes_ptr = strstr(buffer, "\r\n\r\n");
+
+            if (bytes_ptr != NULL){
+                header_len = strlen(buffer_ptr) - strlen(bytes_ptr + 4);
+                fseek(from[i], header_len, SEEK_SET);
+                break;
+            }
+
+        }
 
         while ((count = fread(buffer, 1, sizeof (buffer), from[i])) > 0)
         {
@@ -60,6 +81,8 @@ int files_To_Out(char * output_name)
     }
 
     fclose(to);
+
+    printf("All parts recombined to file: %s\n\n", output_name);
 
     return 0;
 
