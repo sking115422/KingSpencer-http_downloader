@@ -28,7 +28,7 @@ int openConnection(const char *hostname, int portnum)
     he = gethostbyname(hostname);
     if (he == NULL) { 
         herror("gethostbyname"); 
-        exit(1);
+        exit(0);
     }
 
     printf("\nDNS INFO\n");
@@ -58,7 +58,7 @@ int openConnection(const char *hostname, int portnum)
     {
         close(tcp_socket);
         ERR_print_errors_fp(stderr);
-        abort();
+        exit(0);
     }
 
     printf("\nNew TCP socket created!\n");
@@ -86,7 +86,7 @@ SSL_CTX* InitCTX(void)
     if ( ctx == NULL )
     {
         ERR_print_errors_fp(stderr);
-        abort();
+        exit(0);
     }
 
     printf("New SSL context (CTX) created!\n");
@@ -111,7 +111,7 @@ struct ssl_st * create_TLS_Session (const char *hostname, int tcp, SSL_CTX *ctx)
     if ( SSL_connect(ssl) == -1 )  
     {
         ERR_print_errors_fp(stderr);
-        abort();
+        exit(0);
     }
 
     printf("New TLS Session created!\n");  

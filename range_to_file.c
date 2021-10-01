@@ -73,7 +73,7 @@ void* range_To_File (void * arg)
     if(SSL_write(ssl, request, sizeof(request)) == -1) 
     {
         ERR_print_errors_fp(stderr);
-        abort();
+        exit(0);
     }
 
     char response [4096];

@@ -172,7 +172,7 @@ int main(int argc, char **argv)
     if(SSL_write(tls_header_sess, h_request, sizeof(h_request)) == -1) 
     {
         ERR_print_errors_fp(stderr);
-        abort();
+        exit(0);
     }
 
     char h_response[32768];
@@ -181,7 +181,7 @@ int main(int argc, char **argv)
     if (SSL_read(tls_header_sess, h_response, sizeof(h_response)) == -1) 
     {
         ERR_print_errors_fp(stderr);
-        abort();
+        exit(0);
     }
 
     printf("\nh_response from server: %s\n", h_response);
@@ -204,8 +204,8 @@ int main(int argc, char **argv)
     if(strstr(h_response, "Content-Length:") != NULL) 
     {
         char * cl  =  strstr(h_response, "Content-Length:");
-        int a = strlen(strstr(h_response, "Content-Length:"));
-        int b = strlen(strstr(h_response, "Connection:"));
+        int a = strlen(strstr(cl, "Content-Length:"));
+        int b = strlen(strstr(cl, "\r\n"));
 
         int c = a - b;
         int z = 0;
@@ -235,8 +235,8 @@ int main(int argc, char **argv)
             rangeArr [i] = 0;
 
         else if (i == int_NUM_PARTS)
-            rangeArr [i] = rangeArr [i - 1] + size_of_parts + remainder;  
-            
+            rangeArr [i] = rangeArr [i - 1] + size_of_parts + remainder;
+
         else 
             rangeArr [i] = rangeArr [i - 1] + size_of_parts;
     }
@@ -257,7 +257,6 @@ int main(int argc, char **argv)
         argArr[i]._range2 = rangeArr[i+1];
 
         pthread_create(&threadArr[i], NULL, (void *) range_To_File, &argArr[i]);  
-
     } 
 
     //joining threads back to main to make sure each has completed before code continues
@@ -283,7 +282,7 @@ int main(int argc, char **argv)
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
     
     //printing execution time
-    printf("Execution time: %f\n\n", time_spent);
+    printf("\nExecution time: %f\n\n", time_spent);
 
     //exiting all threads 
     pthread_exit(NULL);
