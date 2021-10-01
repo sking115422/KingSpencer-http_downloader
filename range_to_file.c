@@ -82,7 +82,10 @@ void* range_To_File (void * arg)
     int bytes_received;
 
     FILE* fp=fopen(file_path,"wb");
-    printf("Downloading https response body in bytes to file...\n\n");            
+    printf("Downloading https response body in bytes to file...\n\n");
+
+    char * bytes_ptr;
+    int header_len;              
 
     //reading https range response and writing it to a file until all bytes have been written
     while (bytes_received = SSL_read(ssl, response, sizeof(response)))
@@ -94,8 +97,19 @@ void* range_To_File (void * arg)
             exit(0);
         }
 
-        bytes = bytes + bytes_received;
-        printf("Bytes recieved: %d from %d\n", bytes, range_len);
+        bytes_ptr = strstr(response, "\r\n\r\n");
+
+        if (bytes_ptr != NULL)
+        {
+            header_len = strlen(ptr_response) - strlen(bytes_ptr + 4);
+            bytes = bytes + bytes_received - header_len;
+        }
+        else
+        {
+            bytes = bytes + bytes_received;
+            printf("Bytes recieved: %d from %d\n", bytes, range_len + 1);
+        }
+        
 
         fwrite(ptr_response, 1, bytes_received, fp);
 

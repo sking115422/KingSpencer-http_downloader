@@ -56,7 +56,6 @@ int files_To_Out(char * output_name)
         char * buffer_ptr = buffer;
         int count;
 
-
         char * bytes_ptr;
         int header_len;        
 
@@ -64,7 +63,8 @@ int files_To_Out(char * output_name)
         {
             bytes_ptr = strstr(buffer, "\r\n\r\n");
 
-            if (bytes_ptr != NULL){
+            if (bytes_ptr != NULL)
+            {
                 header_len = strlen(buffer_ptr) - strlen(bytes_ptr + 4);
                 fseek(from[i], header_len, SEEK_SET);
                 break;
