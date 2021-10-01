@@ -1,5 +1,5 @@
 all:
-	gcc main.c tcp_conn.c tls_sess.c f_clean_copy.c -o http_downloader -lssl -lcrypto
+	gcc main.c conn_utils.c range_to_file.c files_to_out.c -o http_downloader -lssl -lcrypto -lpthread
 
 clean:
-	rm -rf *.o *.gif *.jpg http_downloader
+	rm -rf *.o part_* *.gif *.jpg http_downloader

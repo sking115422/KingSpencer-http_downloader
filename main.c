@@ -7,41 +7,95 @@
 #include <ctype.h>
 #include <math.h>
 #include <pthread.h>
+#include <time.h>
+#include <dirent.h>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#include "conn_utils.h"
-#include "f_clean_copy.h"
+//importing helper methods
+#include "http_dwnldr_lib.h"
 
-int create_TLS_Session (const char *hostname, int portnum) 
+
+/*
+
+HTTP_DOWNLOADER PROGRAM
+
+This program is designed to download files from a user input URL in a number of part specified by the user then recombine the parts to an output file specified by the user.
+The program parses the given URL into a host name and file path. To interact with the server, the program creates a TCP socket and SSL session on top of that. The program 
+then requests and parses the header for content length. It uses that information to make mulitple range requests in parallel to the server each over a seperate SSL session encapsulated in 
+its own thread. The requests are then written to individual files, and then recompiled to a single output file. 
+
+*/
+
+
+//Structure to pass arguments into the pthread_create() function
+
+struct Args {
+    char * _hostname;
+    char * _path;
+    int _portnum;
+    int _range1;
+    int _range2;
+    int _id;
+};
+
+//Method to check md5sum of output for reference against original file
+
+void check_md5sum (char * out)
 {
-    SSL_CTX *ctx;
-    int serverConnection;
-    SSL *ssl;
-
-    ctx = InitCTX();
-    serverConnection = OpenConnection(hostname, portnum);
-    ssl = SSL_new(ctx);     
-    SSL_set_fd(ssl, serverConnection); 
-
-    printf("\nTLS Session created!\n");  
-
-    return serverConnection;
+    char cmd [1024] = "md5sum ";
+    strcat(cmd, out);
+    system(cmd);
 }
 
+//Method to clean any part files that may exist before each program run
+
+void clean_files ()
+{
+    DIR * dir = opendir(".");
+
+    struct dirent * entity;
+    entity = readdir(dir);
+    int count = 0;
+
+    while (entity != NULL)
+    {
+        if(strstr(entity -> d_name, "part_") != NULL)
+        {
+            remove(entity->d_name);
+        }
+        
+        entity = readdir(dir);
+    }
+
+    closedir(dir);   
+}
+
+//DRIVER METHOD
 
 int main(int argc, char **argv) 
 {
 
-    //using getopt to take command line arguements for -u, -n, and -o
+    //INITIALIZATION
+
+    //starting clock to measure progam runtime
+    clock_t begin = clock();   
+
+    //cleaning old part files
+    clean_files();      
 
     int option_val = 0;
 
+    //setting default values
     char * HTTPS_URL = NULL;
     char * NUM_PARTS = "5";
-    char * OUTPUT_FILE = "outfile.o";
+    char * OUTPUT_FILE = "output";
 
+    //using getopt to take command line arguments from the user with flags -u, -o, and -n
+    // -u = URL
+    // -o = output file name   
+    // -n  number of parts to break file in to
     while((option_val = getopt(argc, argv, "u:n:o:h")) != -1)
     {
         switch(option_val)
@@ -57,25 +111,23 @@ int main(int argc, char **argv)
                 break;
             case 'h':
                 printf("-h  for help\n");
-                printf("-u  to specify the url of file to download\n");
+                printf("-u  to specify the url (https:// included) of file to download\n");
                 printf("-n  to enter number of parts to break the file in to\n");
                 printf("-o  to give a name for the downloaded output file\n");
                 exit(0);
         }
     }
 
+    //notifying user that they must atleast enter a url for the program to run
     if (HTTPS_URL == NULL) 
     {
         printf("\n\nYou must enter a URL... Please rerun the command atleast with flag -u and a URL after it!\n\n");
         exit(0);    
     }
 
-    // printf("\nurl: %s\n", HTTPS_URL);
-    // printf("\nnumparts: %d\n", atoi(NUM_PARTS));
-    // printf("\noutput: %s\n", OUTPUT_FILE);
+    //PARSING URL AND FILE PATH
 
-    //parsing url into tokens
-	char * str = HTTPS_URL;
+    char * str = HTTPS_URL;
 	int init_size = strlen(str);
 	char delim[] = "/";
     char urlArr[strlen(str)][strlen(str)];
@@ -89,43 +141,71 @@ int main(int argc, char **argv)
         url_parts_count = url_parts_count + 1;
 	}
 
-    int portnum = 80; 
-    char *hostname = urlArr[1];
-
-    int tls1 = create_TLS_Session(hostname, portnum);
-
-    //// SENDING HTTP REQUEST
-
-    char h_request[8192];
-    char path[4096] = "";    
-    char http_ver[] = " HTTP/1.1";
-
+    char path[4096] = ""; 
     for (int i = 2; i < url_parts_count; i++) 
     {
         strcat(path, "/");
         strcat(path, urlArr[i]);
-    }     
+    }
 
+    //HTTPS HEADER REQUEST/RESPONSE FROM SERVER
+
+    //setting port number for https connections and hostname
+    int portnum = 443;          
+    char *hostname = urlArr[1];
+
+    //creating tcp socket
+    int tcp_socket = openConnection(hostname, portnum);
+    //initializing context structure for SSL sessions         
+    SSL_CTX * ctx = InitCTX();
+    //creating TLS session          
+    struct ssl_st * tls_header_sess = create_TLS_Session(hostname, tcp_socket, ctx);    
+
+    char h_request[8192];
+    char http_ver[] = " HTTP/1.1";
+
+    //writing https request for the header
     snprintf(h_request, sizeof(h_request), "HEAD %s HTTP/1.1\r\nHost: %s\r\n\r\n", path, hostname);
     printf("\nh_request:\n%s", h_request);
 
+    //sending https request via SSL session
+    if(SSL_write(tls_header_sess, h_request, sizeof(h_request)) == -1) 
+    {
+        ERR_print_errors_fp(stderr);
+        exit(0);
+    }
+
     char h_response[32768];
 
-    send(tls1, h_request, sizeof(h_request), 0);
-    recv(tls1, &h_response, sizeof(h_response), 0);
+    //reading https response via SSL session
+    if (SSL_read(tls_header_sess, h_response, sizeof(h_response)) == -1) 
+    {
+        ERR_print_errors_fp(stderr);
+        exit(0);
+    }
 
     printf("\nh_response from server: %s\n", h_response);
 
-    int header_len = strlen(h_response);
-    printf("\nheader_len: %d\n", header_len);
+    //closing SSL session
+    SSL_shutdown(tls_header_sess);
+    SSL_free(tls_header_sess);
 
+    //closing tcp socket
+    close(tcp_socket);
+
+    //freeing context structure
+    SSL_CTX_free(ctx);
+
+    //PARSING HEADER RESPONSE FOR CONTENT LENGTH
+
+    int header_len = strlen(h_response);
     char cl_val [256] = ""; 
     
     if(strstr(h_response, "Content-Length:") != NULL) 
     {
         char * cl  =  strstr(h_response, "Content-Length:");
-        int a = strlen(strstr(h_response, "Content-Length:"));
-        int b = strlen(strstr(h_response, "Connection:"));
+        int a = strlen(strstr(cl, "Content-Length:"));
+        int b = strlen(strstr(cl, "\r\n"));
 
         int c = a - b;
         int z = 0;
@@ -141,69 +221,73 @@ int main(int argc, char **argv)
 
     }
 
-    int size_of_parts = floor((double)(atoi(cl_val)/atoi(NUM_PARTS)));
-    int remainder = (atoi(cl_val)%atoi(NUM_PARTS));
+    //BREAKING FILE LENGTH INTO PARTS ARRAY
 
-    printf("size of parts: %d\n", size_of_parts);
-    printf("remainder: %d\n", remainder);
+    int int_cl_val = atoi(cl_val);
+    int int_NUM_PARTS = atoi(NUM_PARTS);
+    int size_of_parts = floor((double)(int_cl_val/int_NUM_PARTS));
+    int remainder = (int_cl_val % int_NUM_PARTS);
 
-    close(tls1);
-
-
-
-
-    //opens TLS connection as tls2
-    int tls2 = create_TLS_Session(hostname, portnum);
-
-    char request[8192];
-    char range[] = "0-2404";
-
-    // snprintf(request, sizeof(request), "GET %s HTTP/1.1\r\nHost: %s\r\nRange: bytes=%s\r\n\r\n", path, hostname, range);
-    snprintf(request, sizeof(request), "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", path, hostname);
-    printf("\nrequest:\n%s", request);
-
-    send(tls2, request, sizeof(request), 0);
-
-    // atoi(cl_val)
-    char response[8192];
-    int bytes=0;
-    int bytes_received;
-
-    FILE* fp=fopen("testout.o","wb");
-    printf("Downloading https response body in bytes to file...\n\n");   
-
-    while(bytes_received = recv(tls2, &response, sizeof(response), 0))
+    int rangeArr [int_NUM_PARTS + 1];
+    for (int i = 0; i < int_NUM_PARTS + 1; i++)
     {
-         
-        if(bytes_received==-1)
-        {
-            perror("recieve");
-            exit(3);
-        }
- 
-        bytes = bytes + bytes_received;
+        if (i == 0)
+            rangeArr [i] = 0;
 
-        printf("Bytes recieved: %d from %s\n",bytes,cl_val);
+        else if (i == int_NUM_PARTS)
+            rangeArr [i] = rangeArr [i - 1] + size_of_parts + remainder;
 
-        fwrite(&response, 1, sizeof(response),fp);
-
-        if(bytes>atoi(cl_val))
-        break;
-
+        else 
+            rangeArr [i] = rangeArr [i - 1] + size_of_parts;
     }
-        
 
-    fclose(fp);
+    //CREATING THREADS TO PROCESS FILE PARTS IN PARALLEL 
 
-    close(tls2);
+    struct Args argArr [int_NUM_PARTS];
+    pthread_t threadArr [int_NUM_PARTS];
 
-    char * IN_FILE;
-    IN_FILE = "testout.o";
+    for (int i = 0; i < int_NUM_PARTS; i++) 
+    {
+        //storing relevant values in a structrue to pass to each thread
+        argArr[i]._id = i + 1;
+        argArr[i]._hostname = hostname;
+        argArr[i]._portnum = portnum;
+        argArr[i]._path = path;
+        argArr[i]._range1 = rangeArr[i];
+        argArr[i]._range2 = rangeArr[i+1];
 
-    f_clean_copy(header_len, IN_FILE, OUTPUT_FILE);
+        pthread_create(&threadArr[i], NULL, (void *) range_To_File, &argArr[i]);  
+    } 
 
+    //joining threads back to main to make sure each has completed before code continues
+    for (int i = 0; i < int_NUM_PARTS; i++)
+    {
+        pthread_join(threadArr [i], NULL);  
+    } 
+
+    //RECOMBINING FILES TO AN OUTPUT FILE
+
+    files_To_Out(OUTPUT_FILE);
+
+    //CHECKING md5sum
+
+    printf("md5sum: \n");
+    check_md5sum(OUTPUT_FILE);
+
+    //ending clock to measure progam runtime
+    clock_t end = clock();
+    
     printf("\nprogram completed!\n");
+
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    
+    //printing execution time
+    printf("\nExecution time: %f\n\n", time_spent);
+
+    //exiting all threads 
+    pthread_exit(NULL);
 
     return 0;
 
-}
+}   
+
